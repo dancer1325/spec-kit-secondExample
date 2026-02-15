@@ -1,0 +1,444 @@
+openapi: 3.0.3
+info:
+  title: Taskify Comments API
+  description: |
+    REST API for managing comments and task collaboration in Taskify MVP.
+
+    **Features**:
+    - Add comments to tasks
+    - Edit own comments (inline editing)
+    - Delete own comments (with confirmation)
+    - List comments for a task
+
+    **Authorization**: MVP uses client-side user context selection. Comment edit/delete permissions enforced by comparing authorId with current user.
+
+    **Authentication**: None (MVP - no auth required per FR-015)
+  version: 1.0.0
+  contact:
+    name: Taskify Team
+    email: support@taskify.com
+
+servers:
+  - url: https://api/v1
+    description: Local development (Aspire service discovery)
+  - url: https://localhost:7001/v1
+    description: API service direct access
+
+tags:
+  - name: comments
+    description: Comment management operations
+
+paths:
+  /tasks/{taskId}/comments:
+    get:
+      tags:
+        - comments
+      summary: List comments for a task
+      description: Retrieve all comments for a task in chronological order (oldest first)
+      operationId: listComments
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          description: Task ID
+          schema:
+            type: integer
+            minimum: 1
+            example: 1
+      responses:
+        '200':
+          description: Successfully retrieved comment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommentDetail'
+              examples:
+                commentThread:
+                  summary: Task with multiple comments
+                  value:
+                    - id: 1
+                      content: "Great progress! Let's review the accessibility compliance before final approval."
+                      taskId: 1
+                      authorId: 1
+                      author:
+                        id: 1
+                        name: "Sarah Chen"
+                        role: "ProductManager"
+                      createdAt: "2026-02-15T10:15:00Z"
+                      updatedAt: null
+                      isDeleted: false
+                    - id: 2
+                      content: "I've added ARIA labels to all interactive elements. Ready for review."
+                      taskId: 1
+                      authorId: 2
+                      author:
+                        id: 2
+                        name: "Marcus Rodriguez"
+                        role: "Engineer"
+                      createdAt: "2026-02-15T10:30:00Z"
+                      updatedAt: null
+                      isDeleted: false
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - comments
+      summary: Add a comment to a task
+      description: Create a new comment on the specified task
+      operationId: createComment
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          description: Task ID where comment will be added
+          schema:
+            type: integer
+            minimum: 1
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+            examples:
+              simpleComment:
+                summary: Add a comment
+                value:
+                  content: "Looks good! Approved for production."
+                  authorId: 1
+      responses:
+        '201':
+          description: Comment created successfully
+          headers:
+            Location:
+              description: URI of the created comment
+              schema:
+                type: string
+                example: "/v1/comments/3"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /comments/{commentId}:
+    get:
+      tags:
+        - comments
+      summary: Get comment details
+      description: Retrieve a single comment by ID
+      operationId: getComment
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          description: Successfully retrieved comment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - comments
+      summary: Edit a comment
+      description: |
+        Update comment content (inline editing).
+
+        **Authorization**: Only the comment author can edit. Enforced by comparing authorId with current user context.
+      operationId: updateComment
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommentRequest'
+            examples:
+              editComment:
+                summary: Edit comment text
+                value:
+                  content: "Looks great! Approved for production deployment."
+                  authorId: 1
+      responses:
+        '200':
+          description: Comment updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - comments
+      summary: Delete a comment
+      description: |
+        Soft-delete a comment (sets isDeleted flag).
+
+        **Authorization**: Only the comment author can delete. Enforced by comparing authorId with current user context.
+      operationId: deleteComment
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+        - name: authorId
+          in: query
+          required: true
+          description: Current user ID (for permission check)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+            example: 1
+      responses:
+        '204':
+          description: Comment deleted successfully (soft delete)
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    CommentId:
+      name: commentId
+      in: path
+      required: true
+      description: Unique identifier for the comment
+      schema:
+        type: integer
+        minimum: 1
+        example: 1
+
+  schemas:
+    CommentDetail:
+      type: object
+      description: Complete comment information
+      required:
+        - id
+        - content
+        - taskId
+        - authorId
+        - createdAt
+        - isDeleted
+      properties:
+        id:
+          type: integer
+          description: Unique comment identifier
+          example: 1
+        content:
+          type: string
+          maxLength: 5000
+          description: Comment text content
+          example: "Great progress! Let's review the accessibility compliance before final approval."
+        taskId:
+          type: integer
+          description: Task this comment belongs to
+          example: 1
+        authorId:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: User ID who wrote the comment
+          example: 1
+        author:
+          $ref: '#/components/schemas/UserDetail'
+        createdAt:
+          type: string
+          format: date-time
+          description: Comment creation timestamp (ISO 8601 UTC)
+          example: "2026-02-15T10:15:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last edit timestamp (null if never edited)
+          example: "2026-02-15T10:30:00Z"
+        isDeleted:
+          type: boolean
+          description: Soft delete flag (true if deleted)
+          example: false
+
+    UserDetail:
+      type: object
+      description: User information for comment display
+      required:
+        - id
+        - name
+        - role
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: User identifier (1-5 for MVP)
+          example: 1
+        name:
+          type: string
+          description: User's full name
+          example: "Sarah Chen"
+        role:
+          type: string
+          enum: ["ProductManager", "Engineer"]
+          description: User's role
+          example: "ProductManager"
+
+    CreateCommentRequest:
+      type: object
+      description: Request body for creating a new comment
+      required:
+        - content
+        - authorId
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: Comment text (no script tags allowed for XSS prevention)
+          example: "Looks good! Approved for production."
+        authorId:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: User ID of comment author (current user from client context)
+          example: 1
+
+    UpdateCommentRequest:
+      type: object
+      description: Request body for editing a comment
+      required:
+        - content
+        - authorId
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: Updated comment text (no script tags allowed)
+          example: "Looks great! Approved for production deployment."
+        authorId:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: User ID of current user (must match comment author for authorization)
+          example: 1
+
+    ErrorResponse:
+      type: object
+      description: Standard error response format
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code or type
+          example: "ValidationError"
+        message:
+          type: string
+          description: Human-readable error description
+          example: "Comment content must not exceed 5000 characters"
+        details:
+          type: object
+          description: Additional error context (optional)
+          additionalProperties: true
+          example:
+            field: "content"
+            provided: 5500
+            maximum: 5000
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters or validation failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            validationError:
+              summary: Validation error
+              value:
+                error: "ValidationError"
+                message: "Comment content is required"
+                details:
+                  field: "content"
+
+    Forbidden:
+      description: User not authorized to perform this action
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            notAuthor:
+              summary: User cannot edit/delete other's comments
+              value:
+                error: "Forbidden"
+                message: "You can only edit or delete your own comments"
+                details:
+                  authorId: 2
+                  requestingUserId: 1
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            commentNotFound:
+              summary: Comment not found
+              value:
+                error: "NotFound"
+                message: "Comment with ID 999 not found or has been deleted"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            serverError:
+              summary: Server error
+              value:
+                error: "InternalServerError"
+                message: "An unexpected error occurred. Please try again later."
+
+  securitySchemes:
+    UserContext:
+      type: apiKey
+      in: header
+      name: X-Current-User-Id
+      description: |
+        Current user context for MVP.
+
+        **Note**: MVP uses client-side user selection without authentication.
+        In production, this would be replaced with proper JWT/OAuth tokens.
+
+security:
+  - UserContext: []

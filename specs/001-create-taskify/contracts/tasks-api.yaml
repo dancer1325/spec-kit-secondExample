@@ -1,0 +1,622 @@
+openapi: 3.0.3
+info:
+  title: Taskify Tasks API
+  description: |
+    REST API for managing tasks in Taskify MVP.
+
+    **Features**:
+    - Create tasks with assignment
+    - Update task details (title, description)
+    - Change task status (drag-and-drop support)
+    - Reassign tasks to different users
+    - Retrieve tasks by project or user
+
+    **Authentication**: None (MVP - no auth required per FR-015)
+  version: 1.0.0
+  contact:
+    name: Taskify Team
+    email: support@taskify.com
+
+servers:
+  - url: https://api/v1
+    description: Local development (Aspire service discovery)
+  - url: https://localhost:7001/v1
+    description: API service direct access
+
+tags:
+  - name: tasks
+    description: Task management operations
+
+paths:
+  /projects/{projectId}/tasks:
+    get:
+      tags:
+        - tasks
+      summary: List tasks for a project
+      description: Retrieve all tasks in a project, optionally filtered by status
+      operationId: listProjectTasks
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: integer
+            minimum: 1
+            example: 1
+        - name: status
+          in: query
+          required: false
+          description: Filter by task status
+          schema:
+            type: string
+            enum: ["To Do", "In Progress", "In Review", "Done"]
+            example: "In Progress"
+      responses:
+        '200':
+          description: Successfully retrieved task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - tasks
+      summary: Create a new task
+      description: Create a new task in the specified project (always created in "To Do" status)
+      operationId: createTask
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Project ID where task will be created
+          schema:
+            type: integer
+            minimum: 1
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+            examples:
+              simpleTask:
+                summary: Task without assignment
+                value:
+                  title: "Write documentation"
+                  description: "Document API endpoints and usage examples"
+              assignedTask:
+                summary: Task assigned to user
+                value:
+                  title: "Fix navigation bug"
+                  description: "Mobile menu not closing on item selection"
+                  assignedToId: 3
+      responses:
+        '201':
+          description: Task created successfully
+          headers:
+            Location:
+              description: URI of the created task
+              schema:
+                type: string
+                example: "/v1/tasks/21"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tasks/{taskId}:
+    get:
+      tags:
+        - tasks
+      summary: Get task details
+      description: Retrieve complete task information including comments
+      operationId: getTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Successfully retrieved task details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDetailWithComments'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - tasks
+      summary: Update task
+      description: Update task title and/or description (does not change status or assignment)
+      operationId: updateTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+            examples:
+              updateTitle:
+                summary: Update task title
+                value:
+                  title: "Write comprehensive documentation"
+                  description: "Document API endpoints, usage examples, and troubleshooting guide"
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - tasks
+      summary: Delete task
+      description: Permanently delete a task (soft delete, future enhancement)
+      operationId: deleteTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '204':
+          description: Task deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tasks/{taskId}/status:
+    patch:
+      tags:
+        - tasks
+      summary: Update task status
+      description: |
+        Change task status (supports drag-and-drop operations).
+        Updates task position within the target column.
+      operationId: updateTaskStatus
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskStatusRequest'
+            examples:
+              moveToInProgress:
+                summary: Move task to In Progress
+                value:
+                  status: "In Progress"
+                  position: 0
+              moveToReview:
+                summary: Move task to In Review
+                value:
+                  status: "In Review"
+                  position: 2
+      responses:
+        '200':
+          description: Task status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tasks/{taskId}/assign:
+    patch:
+      tags:
+        - tasks
+      summary: Assign or reassign task
+      description: Change task assignment to a different user or clear assignment
+      operationId: assignTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignTaskRequest'
+            examples:
+              assignToUser:
+                summary: Assign task to user
+                value:
+                  assignedToId: 3
+              clearAssignment:
+                summary: Clear task assignment
+                value:
+                  assignedToId: null
+      responses:
+        '200':
+          description: Task assignment updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}/tasks:
+    get:
+      tags:
+        - tasks
+      summary: List tasks assigned to a user
+      description: Retrieve all tasks assigned to a specific user, optionally filtered by status
+      operationId: listUserTasks
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User ID (1-5 for MVP)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+            example: 2
+        - name: status
+          in: query
+          required: false
+          description: Filter by task status
+          schema:
+            type: string
+            enum: ["To Do", "In Progress", "In Review", "Done"]
+            example: "In Progress"
+      responses:
+        '200':
+          description: Successfully retrieved user's task list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      description: Unique identifier for the task
+      schema:
+        type: integer
+        minimum: 1
+        example: 1
+
+  schemas:
+    TaskDetail:
+      type: object
+      description: Complete task information (without comments)
+      required:
+        - id
+        - title
+        - status
+        - position
+        - projectId
+        - createdAt
+      properties:
+        id:
+          type: integer
+          description: Unique task identifier
+          example: 1
+        title:
+          type: string
+          maxLength: 200
+          description: Task title
+          example: "Design new homepage"
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+          description: Detailed task description (optional)
+          example: "Create mockups for homepage with modern design and clear CTAs"
+        status:
+          type: string
+          enum: ["To Do", "In Progress", "In Review", "Done"]
+          description: Current task status
+          example: "In Progress"
+        position:
+          type: integer
+          description: Position within status column (0-indexed)
+          example: 0
+        projectId:
+          type: integer
+          description: Project this task belongs to
+          example: 1
+        project:
+          $ref: '#/components/schemas/ProjectSummary'
+        assignedToId:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 5
+          description: User ID of assigned person (null if unassigned)
+          example: 2
+        assignedTo:
+          allOf:
+            - $ref: '#/components/schemas/UserSummary'
+            - nullable: true
+        commentCount:
+          type: integer
+          description: Number of comments on this task
+          example: 3
+        createdAt:
+          type: string
+          format: date-time
+          description: Task creation timestamp (ISO 8601 UTC)
+          example: "2026-02-15T00:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last update timestamp (ISO 8601 UTC)
+          example: "2026-02-15T14:30:00Z"
+
+    TaskDetailWithComments:
+      allOf:
+        - $ref: '#/components/schemas/TaskDetail'
+        - type: object
+          required:
+            - comments
+          properties:
+            comments:
+              type: array
+              description: All comments on this task (chronological order)
+              items:
+                $ref: '#/components/schemas/CommentSummary'
+
+    ProjectSummary:
+      type: object
+      description: Basic project information
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          description: Project identifier
+          example: 1
+        name:
+          type: string
+          description: Project name
+          example: "Website Redesign"
+
+    UserSummary:
+      type: object
+      description: Basic user information
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: User identifier (1-5 for MVP)
+          example: 2
+        name:
+          type: string
+          description: User's full name
+          example: "Marcus Rodriguez"
+        role:
+          type: string
+          enum: ["ProductManager", "Engineer"]
+          description: User's role
+          example: "Engineer"
+
+    CommentSummary:
+      type: object
+      description: Comment summary for task views
+      required:
+        - id
+        - content
+        - authorId
+        - createdAt
+      properties:
+        id:
+          type: integer
+          description: Comment identifier
+          example: 1
+        content:
+          type: string
+          maxLength: 5000
+          description: Comment text
+          example: "Great progress! Let's review the accessibility compliance before final approval."
+        authorId:
+          type: integer
+          description: User ID who wrote the comment
+          example: 1
+        author:
+          $ref: '#/components/schemas/UserSummary'
+        createdAt:
+          type: string
+          format: date-time
+          description: Comment creation timestamp
+          example: "2026-02-15T10:15:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last edit timestamp (null if never edited)
+          example: "2026-02-15T10:30:00Z"
+
+    CreateTaskRequest:
+      type: object
+      description: Request body for creating a new task
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Task title (no HTML tags allowed)
+          example: "Write documentation"
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+          description: Task description (optional, no script tags allowed)
+          example: "Document API endpoints and usage examples"
+        assignedToId:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 5
+          description: User ID to assign (null for unassigned)
+          example: 3
+
+    UpdateTaskRequest:
+      type: object
+      description: Request body for updating task details
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Updated task title (no HTML tags allowed)
+          example: "Write comprehensive documentation"
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+          description: Updated task description (optional, no script tags allowed)
+          example: "Document API endpoints, usage examples, and troubleshooting guide"
+
+    UpdateTaskStatusRequest:
+      type: object
+      description: Request body for changing task status (drag-and-drop)
+      required:
+        - status
+        - position
+      properties:
+        status:
+          type: string
+          enum: ["To Do", "In Progress", "In Review", "Done"]
+          description: New task status
+          example: "In Progress"
+        position:
+          type: integer
+          minimum: 0
+          description: Position within the target column (0-indexed)
+          example: 0
+
+    AssignTaskRequest:
+      type: object
+      description: Request body for assigning or reassigning a task
+      required:
+        - assignedToId
+      properties:
+        assignedToId:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 5
+          description: User ID to assign (null to clear assignment)
+          example: 3
+
+    ErrorResponse:
+      type: object
+      description: Standard error response format
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code or type
+          example: "ValidationError"
+        message:
+          type: string
+          description: Human-readable error description
+          example: "Task title must not exceed 200 characters"
+        details:
+          type: object
+          description: Additional error context (optional)
+          additionalProperties: true
+          example:
+            field: "title"
+            provided: 250
+            maximum: 200
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters or validation failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            validationError:
+              summary: Validation error
+              value:
+                error: "ValidationError"
+                message: "Task title is required"
+                details:
+                  field: "title"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            taskNotFound:
+              summary: Task not found
+              value:
+                error: "NotFound"
+                message: "Task with ID 999 not found"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            serverError:
+              summary: Server error
+              value:
+                error: "InternalServerError"
+                message: "An unexpected error occurred. Please try again later."
