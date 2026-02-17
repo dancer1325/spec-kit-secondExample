@@ -7,4 +7,14 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="8.0.2" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="8.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Taskify.ApiService\Taskify.ApiService.csproj" />
+    <ProjectReference Include="..\Taskify.Web\Taskify.Web.csproj" />
+  </ItemGroup>
+
 </Project>

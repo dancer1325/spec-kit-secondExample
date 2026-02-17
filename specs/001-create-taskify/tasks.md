@@ -31,14 +31,14 @@ description: "Task list for Create Taskify MVP implementation"
 
 **Purpose**: Project initialization and basic structure per .NET Aspire best practices
 
-- [ ] T001 Create solution file Taskify.sln in repository root
-- [ ] T002 [P] Create Taskify.AppHost project with .NET Aspire workload in Taskify.AppHost/
-- [ ] T003 [P] Create Taskify.ServiceDefaults project for shared configuration in Taskify.ServiceDefaults/
-- [ ] T004 [P] Create Taskify.Web Blazor Server project in Taskify.Web/
-- [ ] T005 [P] Create Taskify.ApiService ASP.NET Core Web API project in Taskify.ApiService/
-- [ ] T006 [P] Add MudBlazor package to Taskify.Web/Taskify.Web.csproj
-- [ ] T007 [P] Add Npgsql.EntityFrameworkCore.PostgreSQL package to Taskify.ApiService/Taskify.ApiService.csproj
-- [ ] T008 [P] Add FluentValidation.AspNetCore package to Taskify.ApiService/Taskify.ApiService.csproj
+- [x] T001 Create solution file Taskify.sln in repository root
+- [x] T002 [P] Create Taskify.AppHost project with .NET Aspire workload in Taskify.AppHost/
+- [x] T003 [P] Create Taskify.ServiceDefaults project for shared configuration in Taskify.ServiceDefaults/
+- [x] T004 [P] Create Taskify.Web Blazor Server project in Taskify.Web/
+- [x] T005 [P] Create Taskify.ApiService ASP.NET Core Web API project in Taskify.ApiService/
+- [x] T006 [P] Add MudBlazor package to Taskify.Web/Taskify.Web.csproj
+- [x] T007 [P] Add Npgsql.EntityFrameworkCore.PostgreSQL package to Taskify.ApiService/Taskify.ApiService.csproj
+- [x] T008 [P] Add FluentValidation.AspNetCore package to Taskify.ApiService/Taskify.ApiService.csproj
 - [x] T009 [P] Configure linting and formatting tools (.editorconfig in repository root)
 
 ---
