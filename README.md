@@ -36,3 +36,4 @@
     * create [specs/*/tasks.md](specs/001-photo-album-organizer/tasks.md)
   * `/speckit.analyze`
   * `/speckit.implement`
+* `specify integration install kiro-cli`

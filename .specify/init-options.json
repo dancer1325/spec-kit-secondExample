@@ -1,0 +1,6 @@
+{
+  "ai": "kiro-cli",
+  "integration": "kiro-cli",
+  "script": "sh",
+  "speckit_version": "0.14.1"
+}
